@@ -1,0 +1,83 @@
+function sendEmailsAndUpdateStatus() {
+ //Get the rows in the spreadsheet
+ var dataRange = SpreadsheetApp.getActive().getDataRange();
+ var data = dataRange.getValues();
+
+ //Remove the header row and add it to a new array.
+ //We will write this array back to the spreadsheet at the end.
+ var updatedData = [data.shift()];
+
+ //The variable numNotification will track if notifications were sent
+ var numNotifications = 0;
+
+ //Process each row using a forEach loop
+ data.forEach(function (row) {
+   //Check if email notifications should be sent and send them.
+   //If the notification is sent, increment numNotifications and also
+   //update the "Email sent" column to "Y".
+   if(shouldSendEmail(row)) {
+     sendApprovalStatusEmail(row);
+     numNotifications++;
+     row[14] = "Y";
+   }
+
+   //Add this row to the new array that we created above
+   updatedData.push(row);
+ });
+
+ //Write the new array to the spreadsheet. This will update the
+ //"Email sent" columns in the spreadsheet.
+ dataRange.setValues(updatedData);
+
+ //Display a Toast notification to let the user know if notifications
+ //were sent.
+ if(numNotifications > 0) {
+   SpreadsheetApp.getActive().toast("Successfully sent " + numNotifications + " notifications.");
+ } else {
+   SpreadsheetApp.getActive().toast("No notifications were sent.");
+ }
+}
+
+function shouldSendEmail(row) {
+ //Don't send email unless the expense request has been processed
+ if(row[11] != "mjs" && row[11] != "ega" && row[11] != "Have questions")
+   return false;
+  //Don't send email if email address is empty
+ if(row[1] === "")
+   return false;
+  //Don't send email if already sent
+ if(row[14] === "Y")
+   return false;
+  return true;
+}
+
+function sendApprovalStatusEmail(row) {
+ //Create the body of the email based on the contents in the row.
+ //Date: ${(row[3].getMonth() + 1) + "/" + row[3].getDate() + "/" + row[3].getFullYear() }
+ 
+ var emailBody = `
+EXPENSE REQUEST APPROVED: for ${row[3]} ${row[4]}
+-----------------------------------------------------------------
+Note: ${row[13] === "" ? "N/A" : row[13]}
+-----------------------------------------------------------------
+Name: ${(row[3]) + " " + (row[4])} 
+Amount: $ ${row[6]}
+Reason: ${row[5]}
+Request Date: ${row[0]}
+-----------------------------------------------------------------
+ Please contact whatever@foo.com if you have any questions about this email.
+`;
+
+ //Create the email message object by setting the to, subject,
+ //body, replyTo and name properties.
+ var message = {
+   to: row[1],
+   subject: "[Expense Request Approved for " + row[3] + " " + row [4] + "]" ,
+   body: emailBody,
+   replyTo: "whatever@foo.com",
+   name: "Expense Requests"
+ }
+
+ //Send the email notification using the MailApp.sendEmail() API.
+ MailApp.sendEmail(message);
+}
